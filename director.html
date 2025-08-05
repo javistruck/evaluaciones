@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modo Director</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { max-width: 1200px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #3F51B5; }
+        .controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
+        .controls input[type="file"] { margin-right: 10px; }
+        .controls button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        #print-btn { background-color: #795548; color: white; }
+        #save-btn { background-color: #3F51B5; color: white; }
+        #calendar-btn { background-color: #FFC107; color: black; }
+        #results-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        #results-table th, #results-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #results-table th { background-color: #f2f2f2; }
+        #charts-container { display: flex; flex-wrap: wrap; justify-content: space-around; margin-top: 40px; }
+        .chart-box { width: 45%; background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        #search-box { display: flex; align-items: center; gap: 10px; }
+        #search-box input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* Estilos del modal */
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 800px; border-radius: 8px; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-btn:hover, .close-btn:focus { color: black; text-decoration: none; cursor: pointer; }
+        .modal-body { max-height: 70vh; overflow-y: auto; }
+        
+        /* Nuevos estilos para el detalle desplegable */
+        .details-row { display: none; background-color: #e9ecef; }
+        .details-content { padding: 15px; border: 1px solid #ccc; margin: 10px; border-radius: 5px; }
+        .details-content h3 { margin-top: 0; color: #3F51B5; }
+        .details-content ul { list-style-type: none; padding: 0; }
+        .details-content li { margin-bottom: 5px; }
+
+        /* Estilos del calendario */
+        .calendar-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-nav h3 { margin: 0; font-size: 1.5em; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .calendar-day-header { font-weight: bold; padding: 10px; background-color: #f2f2f2; border-radius: 4px; }
+        .calendar-day { padding: 15px 5px; border: 1px solid #ddd; position: relative; border-radius: 4px; cursor: pointer; background-color: #f9f9f9; transition: background-color 0.2s; }
+        .calendar-day:hover { background-color: #e6e6e6; }
+        .calendar-day.empty { background-color: #fff; border-color: #fff; cursor: default; }
+        .calendar-day.has-data::after {
+            content: '';
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background-color: #FFC107;
+            border-radius: 50%;
+        }
+        .daily-evals-list { margin-top: 20px; }
+        .daily-evals-list h4 { margin-bottom: 10px; }
+
+        .daily-evaluation-card {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-box { width: 100%; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .controls div { margin-bottom: 10px; }
+            .controls button { width: 100%; }
+            .modal-content { width: 95%; margin: 10% auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Modo Director</h1>
+        
+        <div class="controls">
+            <input type="file" id="file-input" multiple accept=".json">
+            <div id="search-box">
+                <label for="instructor-search">Buscar por Instructor:</label>
+                <input type="text" id="instructor-search" placeholder="Escribe el nombre del instructor...">
+            </div>
+            <div>
+                <button id="save-btn">Guardar datos localmente</button>
+                <button id="calendar-btn">📅 Almanaque</button>
+                <button id="print-btn">Imprimir</button>
+            </div>
+        </div>
+        
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>ID Matrícula</th>
+                    <th>Nombre del Alumno</th>
+                    <th>Instructor</th>
+                    <th>Aptitud del Día</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+
+        <div id="charts-container">
+            <div class="chart-box">
+                <h2>Estadísticas de Aptitud por Alumno</h2>
+                <canvas id="aptitudeChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h2>Evaluaciones por Día</h2>
+                <canvas id="dailyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="calendar-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <input type="text" id="matricula-search-modal" placeholder="Buscar por ID Matrícula..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ccc;">
+
+            <div class="calendar-nav">
+                <button id="prev-month-btn">Anterior</button>
+                <h3 id="current-month-year"></h3>
+                <button id="next-month-btn">Siguiente</button>
+            </div>
+            <div id="calendar-grid-container" class="modal-body">
+                <div class="calendar-grid">
+                    <div class="calendar-day-header">Lun</div>
+                    <div class="calendar-day-header">Mar</div>
+                    <div class="calendar-day-header">Mié</div>
+                    <div class="calendar-day-header">Jue</div>
+                    <div class="calendar-day-header">Vie</div>
+                    <div class="calendar-day-header">Sáb</div>
+                    <div class="calendar-day-header">Dom</div>
+                    </div>
+                <div id="daily-evaluations-details" class="daily-evals-list">
+                    </div>
+            </div>
+            <div style="text-align: right; margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="excel-simple-btn">Excel Simple</button>
+                <button id="excel-export-btn">Exportar a Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        // **FUNCIÓN GLOBAL PARA IMPRIMIR**
+        function imprimirEvaluacion(idEvaluacion) {
+            const elemento = document.getElementById(idEvaluacion);
+            if (!elemento) {
+                console.error('No se encontró el elemento con ID:', idEvaluacion);
+                return;
+            }
+            
+            const ventanaImpresion = window.open('', '_blank');
+            ventanaImpresion.document.write('<html><head><title>Imprimir Evaluación</title>');
+            ventanaImpresion.document.write('<style>');
+            ventanaImpresion.document.write('body { font-family: Arial, sans-serif; margin: 20px; }');
+            ventanaImpresion.document.write('.daily-evaluation-card, .details-content { border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 15px; background-color: #f9f9f9; }');
+            ventanaImpresion.document.write('button { display: none; }'); // Oculta los botones de impresión en el documento impreso
+            ventanaImpresion.document.write('</style>');
+            ventanaImpresion.document.write('</head><body>');
+            ventanaImpresion.document.write(elemento.innerHTML);
+            ventanaImpresion.document.write('</body></html>');
+            ventanaImpresion.document.close();
+            ventanaImpresion.print();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('file-input');
+            const instructorSearchInput = document.getElementById('instructor-search');
+            const resultsTableBody = document.querySelector('#results-table tbody');
+            const printBtn = document.getElementById('print-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const calendarBtn = document.getElementById('calendar-btn');
+            const calendarModal = document.getElementById('calendar-modal');
+            const closeBtn = document.querySelector('.close-btn');
+            const calendarGrid = document.querySelector('.calendar-grid');
+            const currentMonthYear = document.getElementById('current-month-year');
+            const prevMonthBtn = document.getElementById('prev-month-btn');
+            const nextMonthBtn = document.getElementById('next-month-btn');
+            const dailyEvaluationsDetails = document.getElementById('daily-evaluations-details');
+            const excelExportBtn = document.getElementById('excel-export-btn');
+            const excelSimpleBtn = document.getElementById('excel-simple-btn');
+            const matriculaSearchModal = document.getElementById('matricula-search-modal');
+
+            let allEvaluations = [];
+            let aptitudeChart = null;
+            let dailyChart = null;
+            let currentCalendarDate = new Date();
+            let currentDayEvaluations = [];
+            const LOCAL_STORAGE_KEY = 'evaluationsData';
+
+            const loadDataFromLocalStorage = () => {
+                const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (storedData) {
+                    try {
+                        const parsedData = JSON.parse(storedData);
+                        allEvaluations = parsedData;
+                        displayEvaluations(allEvaluations);
+                        updateCharts(allEvaluations);
+                        console.log('Datos cargados desde el almacenamiento local.');
+                    } catch (e) {
+                        console.error('Error al parsear los datos de Local Storage', e);
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                    }
+                }
+            };
+
+            saveBtn.addEventListener('click', () => {
+                try {
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allEvaluations));
+                    alert('Datos guardados exitosamente en el almacenamiento local.');
+                } catch (e) {
+                    alert('Error al guardar los datos localmente. Asegúrate de que el navegador no esté en modo privado o que el espacio de almacenamiento no esté lleno.');
+                }
+            });
+
+            calendarBtn.addEventListener('click', () => {
+                renderCalendar();
+                calendarModal.style.display = 'block';
+                dailyEvaluationsDetails.innerHTML = 'Selecciona un día con datos para ver las evaluaciones.';
+                matriculaSearchModal.value = '';
+            });
+
+            closeBtn.addEventListener('click', () => {
+                calendarModal.style.display = 'none';
+            });
+
+            window.onclick = function(event) {
+                if (event.target == calendarModal) {
+                    calendarModal.style.display = 'none';
+                }
+            };
+
+            const renderCalendar = () => {
+                const year = currentCalendarDate.getFullYear();
+                const month = currentCalendarDate.getMonth();
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+                currentMonthYear.textContent = `${monthNames[month]} ${year}`;
+                
+                calendarGrid.innerHTML = '';
+                const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+                dayHeaders.forEach(day => {
+                    const header = document.createElement('div');
+                    header.className = 'calendar-day-header';
+                    header.textContent = day;
+                    calendarGrid.appendChild(header);
+                });
+                
+                let dayOfWeek = (firstDayOfMonth === 0) ? 6 : firstDayOfMonth - 1;
+
+                for (let i = 0; i < dayOfWeek; i++) {
+                    const emptyDay = document.createElement('div');
+                    emptyDay.className = 'calendar-day empty';
+                    calendarGrid.appendChild(emptyDay);
+                }
+
+                const evaluationsByDay = allEvaluations.reduce((acc, eval) => {
+                    const date = new Date(eval.date).toLocaleDateString('en-US');
+                    if (!acc[date]) {
+                        acc[date] = [];
+                    }
+                    acc[date].push(eval);
+                    return acc;
+                }, {});
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayElement = document.createElement('div');
+                    dayElement.className = 'calendar-day';
+                    dayElement.textContent = day;
+                    
+                    const dateKey = new Date(year, month, day).toLocaleDateString('en-US');
+                    if (evaluationsByDay[dateKey]) {
+                        dayElement.classList.add('has-data');
+                        dayElement.addEventListener('click', () => {
+                            dailyEvaluationsDetails.innerHTML = '';
+                            showEvaluationsInModal(evaluationsByDay[dateKey], `Evaluaciones del ${dateKey}`);
+                            currentDayEvaluations = evaluationsByDay[dateKey];
+                            matriculaSearchModal.value = '';
+                        });
+                    }
+                    calendarGrid.appendChild(dayElement);
+                }
+            };
+            
+            prevMonthBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                renderCalendar();
+            });
+
+            nextMonthBtn.addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                renderCalendar();
+            });
+
+            const showEvaluationsInModal = (evaluations, title) => {
+                dailyEvaluationsDetails.innerHTML = `<h4>${title}</h4>`;
+
+                const ratings = {
+                    'Excelente': 10, 'Muy Bien': 9, 'Bien': 8,
+                    'Regular': 7, 'Mal': 6, 'Pésimo': 5
+                };
+                
+                evaluations.forEach((eval, index) => {
+                    const averageScore = calculateScore(eval.questions);
+                    const questionsHtml = Object.entries(eval.questions).map(([q, a]) => {
+                        const numericalScore = ratings[a] || 0;
+                        return `<li><strong>${q}:</strong> ${numericalScore}</li>`;
+                    }).join('');
+
+                    const cardId = `evaluacion-${eval.idMatricula}-${index}`;
+                    const card = document.createElement('div');
+                    card.id = cardId;
+                    card.className = 'daily-evaluation-card';
+                    card.innerHTML = `
+                        <h3>EVALUACION FINAL: ${averageScore}</h3>
+                        <p><strong>Nombre del Examen:</strong> ${eval.examName}</p>
+                        <p><strong>Fecha:</strong> ${new Date(eval.date).toLocaleString()}</p>
+                        <p><strong>Alumno:</strong> ${eval.studentName}</p>
+                        <p><strong>Matrícula:</strong> ${eval.idMatricula}</p>
+                        <p><strong>Instructor:</strong> ${eval.instructorName}</p>
+                        <p><strong>Aptitud del Día:</strong> ${eval.studentAptitude}</p>
+                        <h4>Preguntas Evaluadas:</h4>
+                        <ul>
+                            ${questionsHtml}
+                        </ul>
+                        <button onclick="imprimirEvaluacion('${cardId}')" style="margin-top: 10px; background-color: #3F51B5; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer;">Imprimir</button>
+                    `;
+                    dailyEvaluationsDetails.appendChild(card);
+                });
+            };
+
+            matriculaSearchModal.addEventListener('keyup', (event) => {
+                const searchTerm = event.target.value.toLowerCase().trim();
+                dailyEvaluationsDetails.innerHTML = '';
+                
+                if (searchTerm.length > 0) {
+                    const filteredEvals = allEvaluations.filter(eval => 
+                        eval.idMatricula.toString().includes(searchTerm)
+                    );
+                    if (filteredEvals.length > 0) {
+                        showEvaluationsInModal(filteredEvals, `Resultados para Matrícula: ${searchTerm}`);
+                        currentDayEvaluations = filteredEvals;
+                    } else {
+                        dailyEvaluationsDetails.innerHTML = `<p>No se encontraron evaluaciones para la matrícula ${searchTerm}.</p>`;
+                        currentDayEvaluations = [];
+                    }
+                } else {
+                    dailyEvaluationsDetails.innerHTML = 'Selecciona un día con datos para ver las evaluaciones.';
+                    currentDayEvaluations = [];
+                }
+            });
+
+            excelExportBtn.addEventListener('click', () => {
+                const dataToExport = currentDayEvaluations.length > 0 ? currentDayEvaluations : allEvaluations;
+
+                if (dataToExport.length === 0) {
+                    alert("No hay datos para exportar.");
+                    return;
+                }
+                
+                const allQuestions = new Set();
+                dataToExport.forEach(eval => {
+                    Object.keys(eval.questions).forEach(q => allQuestions.add(q));
+                });
+                const sortedQuestions = Array.from(allQuestions).sort();
+
+                const dataForExport = dataToExport.map(eval => {
+                    const ratings = {
+                        'Excelente': 10, 'Muy Bien': 9, 'Bien': 8, 'Regular': 7, 'Mal': 6, 'Pésimo': 5
+                    };
+                    
+                    const rowData = {
+                        'Fecha': new Date(eval.date).toLocaleDateString(),
+                        'ID Matrícula': eval.idMatricula,
+                        'Nombre del Alumno': eval.studentName,
+                        'Instructor': eval.instructorName,
+                        'Aptitud del Día': eval.studentAptitude
+                    };
+
+                    sortedQuestions.forEach(q => {
+                        rowData[q] = ratings[eval.questions[q]] || 0;
+                    });
+                    
+                    const totalScore = Object.values(eval.questions).reduce((sum, rating) => sum + (ratings[rating] || 0), 0);
+                    const averageScore = calculateScore(eval.questions);
+
+                    rowData['Suma Total'] = totalScore;
+                    rowData['Calificación Final'] = averageScore;
+
+                    return rowData;
+                });
+
+                const ws = XLSX.utils.json_to_sheet(dataForExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Evaluaciones Detalladas");
+                XLSX.writeFile(wb, "evaluaciones_detalladas.xlsx");
+            });
+
+            excelSimpleBtn.addEventListener('click', () => {
+                const dataToExport = currentDayEvaluations.length > 0 ? currentDayEvaluations : allEvaluations;
+
+                if (dataToExport.length === 0) {
+                    alert("No hay datos para exportar.");
+                    return;
+                }
+
+                const dataForExport = dataToExport.map(eval => {
+                    const averageScore = calculateScore(eval.questions);
+                    return {
+                        'Fecha': new Date(eval.date).toLocaleDateString(),
+                        'ID Matrícula': eval.idMatricula,
+                        'Nombre del Alumno': eval.studentName,
+                        'Instructor': eval.instructorName,
+                        'Aptitud del Día': eval.studentAptitude,
+                        'Calificación Final': averageScore
+                    };
+                });
+
+                const ws = XLSX.utils.json_to_sheet(dataForExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Evaluaciones Simples");
+                XLSX.writeFile(wb, "evaluaciones_simples.xlsx");
+            });
+
+            fileInput.addEventListener('change', (event) => {
+                allEvaluations = [];
+                const files = event.target.files;
+                
+                if (files.length === 0) {
+                    displayEvaluations([]);
+                    updateCharts([]);
+                    return;
+                }
+
+                const processFile = (file) => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                const data = JSON.parse(e.target.result);
+                                allEvaluations.push(data);
+                                resolve();
+                            } catch (error) {
+                                console.error('Error al parsear el archivo JSON:', error);
+                                reject(`Error en el archivo ${file.name}. Asegúrate de que sea un JSON válido.`);
+                            }
+                        };
+                        reader.readAsText(file);
+                    });
+                };
+
+                const promises = Array.from(files).map(processFile);
+                
+                Promise.all(promises).then(() => {
+                    displayEvaluations(allEvaluations);
+                    updateCharts(allEvaluations);
+                }).catch(error => {
+                    alert(error);
+                });
+            });
+
+            instructorSearchInput.addEventListener('keyup', (event) => {
+                const searchTerm = event.target.value.toLowerCase();
+                const filteredEvaluations = allEvaluations.filter(eval => 
+                    eval.instructorName.toLowerCase().includes(searchTerm)
+                );
+                displayEvaluations(filteredEvaluations);
+                updateCharts(filteredEvaluations);
+            });
+            
+            const calculateScore = (questions) => {
+                const ratings = {
+                    'Excelente': 10, 'Muy Bien': 9, 'Bien': 8, 'Regular': 7, 'Mal': 6, 'Pésimo': 5
+                };
+                
+                const scores = Object.values(questions).map(rating => ratings[rating] || 0);
+                const totalScore = scores.reduce((sum, score) => sum + score, 0);
+                const questionCount = Object.keys(questions).length;
+                
+                return questionCount > 0 ? Math.round(totalScore / questionCount) : 0;
+            };
+
+            const displayEvaluations = (evaluations) => {
+                resultsTableBody.innerHTML = '';
+                evaluations.forEach((data, index) => {
+                    const row = resultsTableBody.insertRow();
+                    const formattedDate = new Date(data.date).toLocaleDateString();
+                    const averageScore = calculateScore(data.questions);
+
+                    row.insertCell().textContent = formattedDate;
+                    row.insertCell().textContent = data.idMatricula;
+                    row.insertCell().textContent = data.studentName;
+                    row.insertCell().textContent = data.instructorName;
+                    row.insertCell().textContent = data.studentAptitude;
+                    
+                    const viewCell = row.insertCell();
+                    const viewBtn = document.createElement('button');
+                    viewBtn.textContent = 'Ver Detalle';
+                    viewCell.appendChild(viewBtn);
+
+                    const detailsRow = resultsTableBody.insertRow();
+                    detailsRow.className = 'details-row';
+                    const detailsCell = detailsRow.insertCell();
+                    detailsCell.colSpan = 6;
+                    
+                    const ratings = {
+                        'Excelente': 10, 'Muy Bien': 9, 'Bien': 8, 'Regular': 7, 'Mal': 6, 'Pésimo': 5
+                    };
+                    const questionsHtml = Object.entries(data.questions).map(([q, a]) => {
+                        const numericalScore = ratings[a] || 0;
+                        return `<li><strong>${q}:</strong> ${numericalScore}</li>`;
+                    }).join('');
+
+                    const totalScore = Object.values(data.questions).reduce((sum, rating) => sum + (ratings[rating] || 0), 0);
+
+                    const detailsId = `details-eval-${data.idMatricula}-${index}`;
+                    detailsCell.innerHTML = `
+                        <div class="details-content" id="${detailsId}">
+                            <h3>EVALUACION FINAL: ${averageScore}</h3>
+                            <p><strong>Nombre del Examen:</strong> ${data.examName}</p>
+                            <p><strong>Fecha:</strong> ${new Date(data.date).toLocaleString()}</p>
+                            <p><strong>Alumno:</strong> ${data.studentName}</p>
+                            <p><strong>Matrícula:</strong> ${data.idMatricula}</p>
+                            <p><strong>Instructor:</strong> ${data.instructorName}</p>
+                            <p><strong>Aptitud del Día:</strong> ${data.studentAptitude}</p>
+                            <h4>Preguntas Evaluadas:</h4>
+                            <ul>
+                                ${questionsHtml}
+                            </ul>
+                            <p><strong>Suma total:</strong> ${totalScore} / <strong>Calificación final:</strong> ${averageScore}</p>
+                            <button onclick="imprimirEvaluacion('${detailsId}')" style="margin-top: 10px; background-color: #3F51B5; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer;">Imprimir</button>
+                        </div>
+                    `;
+
+                    viewBtn.addEventListener('click', () => {
+                        detailsRow.style.display = detailsRow.style.display === 'none' ? 'table-row' : 'none';
+                    });
+                });
+            };
+
+            const updateCharts = (evaluations) => {
+                if (aptitudeChart) aptitudeChart.destroy();
+                if (dailyChart) dailyChart.destroy();
+
+                const aptitudeData = {};
+                const dailyData = {};
+
+                evaluations.forEach(eval => {
+                    const studentName = eval.studentName;
+                    const aptitude = eval.studentAptitude;
+                    if (!aptitudeData[studentName]) {
+                        aptitudeData[studentName] = {};
+                        ['Excelente', 'Muy Bien', 'Bien', 'Regular', 'Mal', 'Pésimo'].forEach(opt => aptitudeData[studentName][opt] = 0);
+                    }
+                    if (aptitudeData[studentName][aptitude] !== undefined) {
+                        aptitudeData[studentName][aptitude]++;
+                    }
+                    
+                    const date = new Date(eval.date).toLocaleDateString();
+                    if (!dailyData[date]) {
+                        dailyData[date] = 0;
+                    }
+                    dailyData[date]++;
+                });
+
+                const aptitudeLabels = Object.keys(aptitudeData);
+                const aptitudeDatasets = ['Excelente', 'Muy Bien', 'Bien', 'Regular', 'Mal', 'Pésimo'].map(option => {
+                    const data = aptitudeLabels.map(student => aptitudeData[student][option]);
+                    return {
+                        label: option,
+                        data: data,
+                        backgroundColor: getAptitudeColor(option)
+                    };
+                });
+
+                const aptitudeCtx = document.getElementById('aptitudeChart').getContext('2d');
+                aptitudeChart = new Chart(aptitudeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: aptitudeLabels,
+                        datasets: aptitudeDatasets
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        }
+                    }
+                });
+
+                const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+                dailyChart = new Chart(dailyCtx, {
+                    type: 'line',
+                    data: {
+                        labels: Object.keys(dailyData).sort(),
+                        datasets: [{
+                            label: 'Evaluaciones por Día',
+                            data: Object.values(dailyData),
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true }
+                        }
+                    }
+                });
+            };
+
+            const getAptitudeColor = (aptitude) => {
+                switch (aptitude) {
+                    case 'Excelente': return '#4CAF50';
+                    case 'Muy Bien': return '#8BC34A';
+                    case 'Bien': return '#CDDC39';
+                    case 'Regular': return '#FFC107';
+                    case 'Mal': return '#FF9800';
+                    case 'Pésimo': return '#F44336';
+                    default: return '#9E9E9E';
+                }
+            };
+
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+
+            loadDataFromLocalStorage();
+        });
+    </script>
+</body>
+</html>
