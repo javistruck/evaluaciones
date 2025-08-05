@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Evaluaciones</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f9; color: #333; line-height: 1.6; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; color: #004d99; border-bottom: 2px solid #004d99; padding-bottom: 10px; margin-top: 0; }
+        h2 { color: #555; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], textarea { width: 98%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .controls { display: flex; justify-content: flex-end; margin-top: 20px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .btn-add { background-color: #4CAF50; color: white; }
+        .btn-generate { background-color: #007bff; color: white; width: 100%; margin-top: 20px; }
+        .question-item { display: flex; gap: 10px; margin-bottom: 10px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9f9; align-items: center; }
+        .question-item input { flex-grow: 1; }
+        .question-item button { background-color: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .reorder-buttons { display: flex; flex-direction: column; gap: 5px; }
+        .reorder-buttons button { padding: 5px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Generador de Evaluaciones</h1>
+        
+        <form id="generator-form">
+            <div class="form-group">
+                <label for="exam-title">Título del Examen:</label>
+                <input type="text" id="exam-title" value="Evaluación de Habilidades de Conducción" required>
+            </div>
+            <div class="form-group">
+                <label for="exam-instructions">Instrucciones del Examen:</label>
+                <textarea id="exam-instructions" rows="3" placeholder="Ej. El instructor deberá evaluar cada competencia del 1 al 6."></textarea>
+            </div>
+            
+            <h2>Preguntas de Competencia</h2>
+            <div id="questions-container">
+                </div>
+            
+            <div class="controls">
+                <button type="button" class="btn btn-add" id="add-question-btn">Agregar Pregunta</button>
+            </div>
+
+            <button type="submit" class="btn btn-generate">Generar Archivo HTML</button>
+        </form>
+    </div>
+
+    <script src="generador.js"></script>
+
+</body>
+</html>
