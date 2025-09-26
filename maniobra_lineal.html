@@ -1,0 +1,788 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maniobra Lineal en Recta, Adelante y Hacia Atrás</title>
+    <style>
+        body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f7f9; }
+        .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
+        h1, h2 { text-align: center; color: #004d99; }
+        p.instructions { text-align: center; color: #666; font-style: italic; margin-bottom: 20px; }
+        .header-info { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; margin-bottom: 20px; }
+        .header-info span { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], select { width: 98%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #submit-btn { background-color: #007bff; color: white; padding: 12px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 20px; }
+        .button-group { display: flex; justify-content: space-around; margin-top: 20px; gap: 10px; }
+        .button-group button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        #download-btn { background-color: #2196F3; color: white; }
+        #clear-cache-btn { background-color: #f44336; color: white; }
+        .hidden { display: none; }
+        
+        /* Estilos para el promedio */
+        .average-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+        .average-display.show {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+        .average-score {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .average-text {
+            font-size: 1.2em;
+            margin: 5px 0;
+        }
+        .progress-bar {
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            height: 20px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+        
+        /* Colores para diferentes niveles */
+        .excellent { background-color: #4CAF50; }
+        .very-good { background-color: #8BC34A; }
+        .good { background-color: #FFC107; }
+        .regular { background-color: #FF9800; }
+        .bad { background-color: #FF5722; }
+        .terrible { background-color: #F44336; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Estilos del modal del calendario */
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 700px; border-radius: 8px; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-btn:hover, .close-btn:focus { color: black; text-decoration: none; cursor: pointer; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .calendar-header button { background: none; border: none; font-size: 1.5em; cursor: pointer; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .day-header { font-weight: bold; color: #555; }
+        .calendar-day { padding: 10px 5px; border: 1px solid #eee; border-radius: 4px; position: relative; }
+        .calendar-day:hover { background-color: #f0f0f0; cursor: pointer; }
+        .empty-day { padding: 10px 5px; }
+        .has-evaluations { font-weight: bold; cursor: pointer; }
+        .has-evaluations::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: #007bff;
+            border-radius: 50%;
+        }
+        .evaluation-list { margin-top: 20px; list-style-type: none; padding: 0; }
+        .evaluation-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+        .evaluation-item:hover { background-color: #f9f9f9; }
+        .download-json-btn { background-color: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-info">
+            <div>
+                <span id="date-info"></span>
+                <span id="time-info"></span>
+            </div>
+            <div>
+                <button id="calendar-icon" title="Ver evaluaciones guardadas">📅</button>
+            </div>
+        </div>
+
+        <h1>Maniobra Lineal en Recta, Adelante y Hacia Atrás</h1>
+        <p class="instructions">Objetivo: El Participante conducirá con habilidad y destreza su unidad, realizando el recorrido en línea recta, hacia adelante y hacia atrás; manteniendo el remolque lineal al la unidad tractora y deteniendo el vehículo donde el instructor se lo indique.</p>
+        
+        <div id="average-display" class="average-display">
+            <div class="average-text">Promedio Actual</div>
+            <div id="average-score" class="average-score">0.0</div>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="evaluation-count" class="average-text">0 de 15 competencias evaluadas</div>
+            <div id="performance-level" class="average-text"></div>
+        </div>
+        
+        <form id="evaluation-form">
+            <div class="form-group">
+                <label for="id-matricula">ID y Número de Matrícula:</label>
+                <input type="text" id="id-matricula" required>
+            </div>
+            
+            
+            <div class="form-group">
+                <label for="student-name">Nombre del Alumno:</label>
+                <select id="student-name" required>
+                    <option value="">-- Selecciona un Alumno --</option>
+                    <option value="T4619	Cristian David Alcantara Ramos">T4619	Cristian David Alcantara Ramos</option><option value="T4620	Ruben Eli Lopez Bustos">T4620	Ruben Eli Lopez Bustos</option><option value="T4621	Renato Orlando Lima Nava">T4621	Renato Orlando Lima Nava</option><option value="T4622	Javier Adrian Sanchez Hernández">T4622	Javier Adrian Sanchez Hernández</option><option value="T4623	Israel Alexis Contijoch Cosme">T4623	Israel Alexis Contijoch Cosme</option><option value="T4624	Isac Figueroa Palacios">T4624	Isac Figueroa Palacios</option><option value="T4625	Miguel Alejandro Elizondo Ortiz">T4625	Miguel Alejandro Elizondo Ortiz</option><option value="T4626	Cristhian Tello Giles">T4626	Cristhian Tello Giles</option><option value="T4627	Carlos Eduardo Moreno Zúñiga">T4627	Carlos Eduardo Moreno Zúñiga</option><option value="T4628	Eric Eduardo Gilberto Nieto">T4628	Eric Eduardo Gilberto Nieto</option><option value="T4629	Juan Carlos Corpuz de la Torre">T4629	Juan Carlos Corpuz de la Torre</option><option value="T4630	Frank Uriel Barragan Garcia">T4630	Frank Uriel Barragan Garcia</option><option value="T4631	Ruben Tepatlan Fuentes">T4631	Ruben Tepatlan Fuentes</option><option value="T4632	Luis Ángel Pérez Ovando">T4632	Luis Ángel Pérez Ovando</option><option value="T4633	Luis Alejandro Muñoz Ortiz">T4633	Luis Alejandro Muñoz Ortiz</option><option value="T4634	Carlos Segundo Serrato">T4634	Carlos Segundo Serrato</option><option value="T4635	Miguel Antonio Ledezma Martinez">T4635	Miguel Antonio Ledezma Martinez</option><option value="T4636	Jesus Alberto Dominguez Amaya">T4636	Jesus Alberto Dominguez Amaya</option><option value="T4637	Cesar Rodrigo Fierro  Sanchez">T4637	Cesar Rodrigo Fierro  Sanchez</option><option value="T4638	Emmanuel Alvarez Elias">T4638	Emmanuel Alvarez Elias</option><option value="T4639	Ilsa de Leon Gaona">T4639	Ilsa de Leon Gaona</option><option value="T4640	Emilio Juarez García">T4640	Emilio Juarez García</option><option value="T4641	Jose Nissin Sanchez Lara">T4641	Jose Nissin Sanchez Lara</option><option value="T4642	Rafael Ixmatlahua Antonio">T4642	Rafael Ixmatlahua Antonio</option><option value="T4643	Jessy Lopez Hernández">T4643	Jessy Lopez Hernández</option>
+                </select>
+            </div>
+            
+            
+            <h2>Competencias a Evaluar</h2>
+            
+                    <div class="form-group">
+                        <label>1. Sube de frente y baja de espalda de la unidad utilizando los 3 puntos de apoyo</label>
+                        <select name="question-0" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>2. Observa hacia adelante su espacio e identifica posibles riesgos</label>
+                        <select name="question-1" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>3. Opera a la velocidad indicada por el instructor</label>
+                        <select name="question-2" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>4. Frena a tiempo en la marca señalada por el instructor</label>
+                        <select name="question-3" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>5. Detuvo la unidad de acuerdo a la técnica de frenado</label>
+                        <select name="question-4" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>6. Activa las intermitentes durante la maniobra de reversa</label>
+                        <select name="question-5" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>7. Controla el volante con ambas manos</label>
+                        <select name="question-6" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>8. Realiza con buen control la maniobra respetando indicaciones del instructor</label>
+                        <select name="question-7" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>9. Observa ambos espejos al retroceder</label>
+                        <select name="question-8" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>10. Mantiene unidad y remolque correctamente en su carril hacia adelante</label>
+                        <select name="question-9" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>11. Mantiene unidad y remolque correctamente en su carril hacia atrás</label>
+                        <select name="question-10" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>12. No excede las 1200 (RPM) en la maniobra de retroceso</label>
+                        <select name="question-11" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>13. Aplica la corneta o claxon al retroceder</label>
+                        <select name="question-12" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>14. El frenado fue suave sin sobre saltos</label>
+                        <select name="question-13" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+                    <div class="form-group">
+                        <label>15. Bloquea correctamente la unidad al bajar (Liberando el AIRE) y aplicando un cambio</label>
+                        <select name="question-14" class="evaluation-select">
+                            <option value="">-- Selecciona una opción --</option>
+                            <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                        </select>
+                    </div>
+                
+
+            
+            <div class="form-group">
+                <label for="instructor-name">Nombre del Instructor:</label>
+                <select id="instructor-name" required>
+                    <option value="">-- Selecciona un Instructor --</option>
+                    <option value="JORGE WILSON">JORGE WILSON</option><option value="ALFREDO CANTU">ALFREDO CANTU</option><option value="CARLOS AYALA">CARLOS AYALA</option><option value="ENRIQUE CASTILLO">ENRIQUE CASTILLO</option><option value="GERARDO GONZALES">GERARDO GONZALES</option><option value="REY DAVID">REY DAVID</option>
+                </select>
+            </div>
+            
+            
+            <div class="form-group">
+                <label for="student-aptitude">Aptitud del Estudiante:</label>
+                <select id="student-aptitude">
+                     <option value="Excelente">Excelente</option>
+                            <option value="Muy Bien">Muy Bien</option>
+                            <option value="Bien">Bien</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Mal">Mal</option>
+                            <option value="Pésimo">Pésimo</option>
+                </select>
+            </div>
+        
+
+            <button type="submit" id="submit-btn">Guardar Evaluación</button>
+        </form>
+
+        <div class="button-group">
+            <button id="tools-btn">Herramientas</button>
+            <button id="clear-cache-btn" class="hidden">Borrar Evaluaciones Guardadas</button>
+        </div>
+    </div>
+
+    <div id="calendar-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Evaluaciones Guardadas</h2>
+            <div class="calendar-nav">
+                <button id="prev-month">‹</button>
+                <span id="month-year"></span>
+                <button id="next-month">›</button>
+            </div>
+            <div id="calendar-container" class="calendar-grid"></div>
+            <ul id="evaluation-list" class="evaluation-list">
+                <p>Selecciona un día del calendario para ver las evaluaciones.</p>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+    const dateInfo = document.getElementById('date-info');
+    const timeInfo = document.getElementById('time-info');
+    const form = document.getElementById('evaluation-form');
+    const toolsBtn = document.getElementById('tools-btn');
+    const clearCacheBtn = document.getElementById('clear-cache-btn');
+    const calendarIcon = document.getElementById('calendar-icon');
+    const calendarModal = document.getElementById('calendar-modal');
+    const closeBtn = document.querySelector('.close-btn');
+    const calendarContainer = document.getElementById('calendar-container');
+    const evaluationList = document.getElementById('evaluation-list');
+    const monthYearSpan = document.getElementById('month-year');
+    const averageDisplay = document.getElementById('average-display');
+    const averageScore = document.getElementById('average-score');
+    const progressFill = document.getElementById('progress-fill');
+    const evaluationCount = document.getElementById('evaluation-count');
+    const performanceLevel = document.getElementById('performance-level');
+    const questionsArray = [{"text":"Sube de frente y baja de espalda de la unidad utilizando los 3 puntos de apoyo","type":"select"},{"text":"Observa hacia adelante su espacio e identifica posibles riesgos","type":"select"},{"text":"Opera a la velocidad indicada por el instructor","type":"select"},{"text":"Frena a tiempo en la marca señalada por el instructor","type":"select"},{"text":"Detuvo la unidad de acuerdo a la técnica de frenado","type":"select"},{"text":"Activa las intermitentes durante la maniobra de reversa","type":"select"},{"text":"Controla el volante con ambas manos","type":"select"},{"text":"Realiza con buen control la maniobra respetando indicaciones del instructor","type":"select"},{"text":"Observa ambos espejos al retroceder","type":"select"},{"text":"Mantiene unidad y remolque correctamente en su carril hacia adelante","type":"select"},{"text":"Mantiene unidad y remolque correctamente en su carril hacia atrás","type":"select"},{"text":"No excede las 1200 (RPM) en la maniobra de retroceso","type":"select"},{"text":"Aplica la corneta o claxon al retroceder","type":"select"},{"text":"El frenado fue suave sin sobre saltos","type":"select"},{"text":"Bloquea correctamente la unidad al bajar (Liberando el AIRE) y aplicando un cambio","type":"select"}];
+
+    const updateTime = () => {
+        const now = new Date();
+        dateInfo.textContent = 'Fecha: ' + now.toLocaleDateString();
+        timeInfo.textContent = 'Hora: ' + now.toLocaleTimeString();
+    };
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+
+    toolsBtn.addEventListener('click', () => {
+        clearCacheBtn.classList.toggle('hidden');
+    });
+
+    const scoreMap = {
+        'Excelente': 100,
+        'Muy Bien': 80,
+        'Bien': 60,
+        'Regular': 40,
+        'Mal': 20,
+        'Pésimo': 0
+    };
+
+    const updateAverage = () => {
+        const selectElements = document.querySelectorAll('.evaluation-select');
+        let totalScore = 0;
+        let evaluatedQuestions = 0;
+        selectElements.forEach(select => {
+            const value = select.value;
+            if (value && scoreMap.hasOwnProperty(value)) {
+                totalScore += scoreMap[value];
+                evaluatedQuestions++;
+            }
+        });
+
+        if (evaluatedQuestions > 0) {
+            const average = totalScore / evaluatedQuestions;
+            averageDisplay.classList.add('show');
+            averageScore.textContent = average.toFixed(1);
+            progressFill.style.width = `${average}%`;
+            evaluationCount.textContent = `${evaluatedQuestions} de ${selectElements.length} competencias evaluadas`;
+            
+            if (average >= 90) {
+                performanceLevel.textContent = 'Excelente';
+                progressFill.className = 'progress-fill excellent';
+            } else if (average >= 70) {
+                performanceLevel.textContent = 'Muy Bien';
+                progressFill.className = 'progress-fill very-good';
+            } else if (average >= 50) {
+                performanceLevel.textContent = 'Bien';
+                progressFill.className = 'progress-fill good';
+            } else if (average >= 30) {
+                performanceLevel.textContent = 'Regular';
+                progressFill.className = 'progress-fill regular';
+            } else if (average >= 10) {
+                performanceLevel.textContent = 'Mal';
+                progressFill.className = 'progress-fill bad';
+            } else {
+                performanceLevel.textContent = 'Pésimo';
+                progressFill.className = 'progress-fill terrible';
+            }
+        } else {
+            averageDisplay.classList.remove('show');
+        }
+    };
+
+    document.querySelectorAll('.evaluation-select').forEach(select => {
+        select.addEventListener('change', updateAverage);
+    });
+    updateAverage();
+
+    const saveEvaluation = () => {
+        const now = new Date();
+        const idMatricula = document.getElementById('id-matricula').value;
+        const studentName = document.getElementById('student-name').value;
+        const instructorName = document.getElementById('instructor-name').value;
+        const studentAptitude = document.getElementById('student-aptitude').value;
+        const selectElements = document.querySelectorAll('.evaluation-select');
+        const allQuestionsAnswered = Array.from(selectElements).every(select => select.value !== '');
+        
+        if (!allQuestionsAnswered) {
+            if (!confirm("No todas las preguntas han sido respondidas. ¿Deseas guardar la evaluación de todos modos?")) {
+                return;
+            }
+        }
+
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const localFormattedDate = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+
+        const newEvaluation = {
+            examName: 'Maniobra Lineal en Recta, Adelante y Hacia Atrás',
+            studentName: studentName,
+            idMatricula: idMatricula,
+            instructorName: instructorName,
+            studentAptitude: studentAptitude,
+            date: localFormattedDate,
+            questions: {}
+        };
+
+        document.querySelectorAll('[name^="question-"]').forEach((input, index) => {
+            const questionText = questionsArray[index].text;
+            newEvaluation.questions[questionText] = input.value;
+        });
+        
+        const existingEvaluations = JSON.parse(localStorage.getItem('evaluations')) || [];
+        existingEvaluations.push(newEvaluation);
+        localStorage.setItem('evaluations', JSON.stringify(existingEvaluations));
+        
+        alert('Evaluación guardada con éxito! Ahora puedes verla en el calendario e imprimirla.');
+    };
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveEvaluation();
+        form.reset();
+    });
+
+    clearCacheBtn.addEventListener('click', () => {
+        if (confirm('¿Estás seguro de que quieres borrar todas las evaluaciones guardadas? Esta acción no se puede deshacer.')) {
+            localStorage.removeItem('evaluations');
+            alert('Se han borrado todas las evaluaciones guardadas.');
+            if (calendarModal.style.display === 'block') {
+                 renderCalendar(currentMonth, currentYear);
+                 evaluationList.innerHTML = '<p>Selecciona un día del calendario para ver las evaluaciones.</p>';
+            }
+        }
+    });
+
+    const getEvaluationsForDay = (day, month, year) => {
+        const evaluations = JSON.parse(localStorage.getItem('evaluations')) || [];
+        return evaluations.filter(eval => {
+            const evalDate = new Date(eval.date);
+            return evalDate.getDate() === day && evalDate.getMonth() === month && evalDate.getFullYear() === year;
+        });
+    };
+
+    const hasEvaluations = (day, month, year) => {
+        return getEvaluationsForDay(day, month, year).length > 0;
+    };
+
+    const printEvaluation = (evaluation) => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write('<html><head><title>Impresión de Evaluación</title>');
+        printWindow.document.write('<style>');
+        printWindow.document.write(`
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #004d99; }
+            .info-section { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 8px; }
+            .info-item { margin-bottom: 10px; }
+            .info-item strong { color: #004d99; }
+            .questions-section { border: 1px solid #ccc; padding: 15px; border-radius: 8px; }
+            .questions-section h2 { margin-top: 0; color: #004d99; }
+            .question-item { margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px dotted #ccc; }
+            .question-item strong { color: #555; }
+            .print-average { font-size: 1.2em; font-weight: bold; margin-top: 10px; }
+            @media print {
+                button { display: none; }
+            }
+        `);
+        printWindow.document.write('</style>');
+        printWindow.document.write('</head><body>');
+        
+        // Calcular el promedio dentro de la función de impresión
+        const scoreMap = {
+            'Excelente': 100,
+            'Muy Bien': 80,
+            'Bien': 60,
+            'Regular': 40,
+            'Mal': 20,
+            'Pésimo': 0
+        };
+        let totalScore = 0;
+        let evaluatedQuestions = 0;
+        for (const answer of Object.values(evaluation.questions)) {
+            if (scoreMap.hasOwnProperty(answer)) {
+                totalScore += scoreMap[answer];
+                evaluatedQuestions++;
+            }
+        }
+        const average = evaluatedQuestions > 0 ? totalScore / evaluatedQuestions : 0;
+
+        printWindow.document.write('<div class="header"><h2>Maniobra Lineal en Recta, Adelante y Hacia Atrás</h2></div>');
+
+        printWindow.document.write('<div class="info-section">');
+        printWindow.document.write('<h2>Información General</h2>');
+        printWindow.document.write(`<div class="info-item"><strong>Nombre del Alumno:</strong> ${evaluation.studentName}</div>`);
+        printWindow.document.write(`<div class="info-item"><strong>ID y Matrícula:</strong> ${evaluation.idMatricula}</div>`);
+        printWindow.document.write(`<div class="info-item"><strong>Nombre del Instructor:</strong> ${evaluation.instructorName}</div>`);
+        printWindow.document.write(`<div class="info-item"><strong>Firma del Instructor:</strong> _______________________________________________</div>`);
+        printWindow.document.write(`<div class="info-item print-average"><strong>Promedio de Evaluación:</strong> ${average.toFixed(1)}%</div>`);
+        printWindow.document.write(`<div class="info-item"><strong>Aptitud del Estudiante:</strong> ${evaluation.studentAptitude}</div>`);
+        printWindow.document.write(`<div class="info-item"><strong>Fecha de Evaluación:</strong> ${new Date(evaluation.date).toLocaleString()}</div>`);
+        printWindow.document.write('</div>');
+
+        printWindow.document.write('<div class="questions-section">');
+        printWindow.document.write('<h2>Competencias a Evaluar</h2>');
+        for (const [question, answer] of Object.entries(evaluation.questions)) {
+            printWindow.document.write(`<div class="question-item"><strong>${question}:</strong> ${answer}</div>`);
+        }
+        printWindow.document.write('</div>');
+
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.print();
+    };
+
+    const openEvaluation = (evaluation) => {
+        document.getElementById('id-matricula').value = evaluation.idMatricula;
+        document.getElementById('student-name').value = evaluation.studentName;
+        document.getElementById('instructor-name').value = evaluation.instructorName;
+        document.getElementById('student-aptitude').value = evaluation.studentAptitude;
+
+        document.querySelectorAll('[name^="question-"]').forEach((input) => {
+            const questionText = questionsArray.find(q => `question-${questionsArray.indexOf(q)}` === input.name).text;
+            input.value = evaluation.questions[questionText] || '';
+        });
+        
+        calendarModal.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    
+    const downloadJson = (evaluation) => {
+        const evaluationDate = new Date(evaluation.date);
+        const year = evaluationDate.getFullYear();
+        const month = String(evaluationDate.getMonth() + 1).padStart(2, '0');
+        const day = String(evaluationDate.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        const formattedTime = evaluationDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, '-');
+        const filename = `${evaluation.idMatricula}_${formattedDate}_${formattedTime}.json`;
+        downloadFile(JSON.stringify(evaluation, null, 2), filename, 'application/json');
+    };
+
+    const deleteEvaluation = (evaluationToDelete) => {
+        if (confirm('¿Estás seguro de que quieres eliminar esta evaluación?')) {
+            let evaluations = JSON.parse(localStorage.getItem('evaluations')) || [];
+            evaluations = evaluations.filter(eval => eval.date !== evaluationToDelete.date);
+            localStorage.setItem('evaluations', JSON.stringify(evaluations));
+            
+            const evaluationsForDay = getEvaluationsForDay(new Date(evaluationToDelete.date).getDate(), new Date(evaluationToDelete.date).getMonth(), new Date(evaluationToDelete.date).getFullYear());
+            renderEvaluationsList(evaluationsForDay);
+            
+            alert('Evaluación eliminada con éxito.');
+        }
+    };
+
+    const renderEvaluationsList = (evaluations) => {
+        evaluationList.innerHTML = '';
+        if (evaluations.length === 0) {
+            evaluationList.innerHTML = '<p>No hay evaluaciones para este día.</p>';
+            return;
+        }
+        
+        evaluations.forEach(eval => {
+            const listItem = document.createElement('li');
+            listItem.className = 'evaluation-item';
+            
+            const evaluationDate = new Date(eval.date);
+            const formattedDate = evaluationDate.toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+            
+            listItem.innerHTML = `
+                <div class="evaluation-info">
+                    <span>Operador: ${eval.studentName} (ID: ${eval.idMatricula})</span>
+                </div>
+                <div class="evaluation-date">Guardado: ${formattedDate}</div>
+                <div class="evaluation-buttons">
+                    <button class="open-evaluation-btn">Abrir</button>
+                    <button class="print-evaluation-btn">Imprimir</button>
+                    <button class="download-json-btn">Descargar JSON</button>
+                    <button class="delete-evaluation-btn">Eliminar</button>
+                </div>
+            `;
+            listItem.querySelector('.open-evaluation-btn').addEventListener('click', () => {
+                openEvaluation(eval);
+            });
+            listItem.querySelector('.print-evaluation-btn').addEventListener('click', () => {
+                printEvaluation(eval);
+            });
+            listItem.querySelector('.download-json-btn').addEventListener('click', () => {
+                downloadJson(eval);
+            });
+            listItem.querySelector('.delete-evaluation-btn').addEventListener('click', () => {
+                deleteEvaluation(eval);
+            });
+            evaluationList.appendChild(listItem);
+        });
+    };
+
+    const renderCalendar = (month, year) => {
+        calendarContainer.innerHTML = '';
+        monthYearSpan.textContent = `${new Date(year, month).toLocaleString('es-ES', { month: 'long' })} ${year}`;
+        const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+        dayNames.forEach(day => {
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-header';
+            dayHeader.textContent = day;
+            calendarContainer.appendChild(dayHeader);
+        });
+        for (let i = 0; i < firstDay; i++) {
+            const emptyDay = document.createElement('div');
+            emptyDay.className = 'empty-day';
+            calendarContainer.appendChild(emptyDay);
+        }
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'calendar-day';
+            dayCell.textContent = day;
+            if (hasEvaluations(day, month, year)) {
+                dayCell.classList.add('has-evaluations');
+                dayCell.addEventListener('click', () => {
+                    const evaluationsForDay = getEvaluationsForDay(day, month, year);
+                    renderEvaluationsList(evaluationsForDay);
+                });
+            }
+            calendarContainer.appendChild(dayCell);
+        }
+    };
+
+    document.getElementById('prev-month').addEventListener('click', () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        }
+        renderCalendar(currentMonth, currentYear);
+        evaluationList.innerHTML = '<p>Selecciona un día del calendario.</p>';
+    });
+
+    document.getElementById('next-month').addEventListener('click', () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        renderCalendar(currentMonth, currentYear);
+        evaluationList.innerHTML = '<p>Selecciona un día del calendario.</p>';
+    });
+
+    calendarIcon.addEventListener('click', () => {
+        renderCalendar(currentMonth, currentYear);
+        evaluationList.innerHTML = '<p>Selecciona un día del calendario.</p>';
+        calendarModal.style.display = 'block';
+    });
+
+    closeBtn.addEventListener('click', () => {
+        calendarModal.style.display = 'none';
+    });
+
+    window.onclick = (event) => {
+        if (event.target == calendarModal) {
+            calendarModal.style.display = 'none';
+        }
+    };
+});
+
+const downloadFile = (content, filename, type) => {
+    const blob = new Blob([content], { type: type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+    </script>
+</body>
+</html>
