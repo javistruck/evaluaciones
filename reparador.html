@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reparador de Evaluaciones JSON</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9eff6;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .controls {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            background-color: #f8faff;
+        }
+        .controls label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #004085;
+        }
+        .controls input[type="file"], 
+        .controls input[type="date"], 
+        .controls button {
+            margin-bottom: 15px;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+        }
+        .controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.1s;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+        .controls button:active {
+            transform: scale(0.99);
+        }
+        .info-box {
+            background-color: #d1ecf1; /* Light Blue for info */
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #bee5eb;
+            margin-top: 15px;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+        }
+        .info-box strong {
+            color: #007bff;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+        .file-list li {
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 5px solid #007bff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        .error {
+            border-left-color: #dc3545 !important;
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .processing-message {
+            text-align: center;
+            padding: 20px;
+            background-color: #e2f0d9;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #155724;
+            display: none;
+            margin-top: 20px;
+        }
+        
+        /* Modal Styles */
+        .message-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .message-content {
+            background-color: #fefefe;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .message-content button {
+            margin-top: 15px;
+            width: auto;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ Reparador Rápido de Evaluaciones JSON</h1>
+        <p class="subtitle">Corrección automática de matrícula y unificación de fechas.</p>
+
+        <div class="controls">
+            <label for="jsonFiles">1. Seleccionar Archivos JSON:</label>
+            <input type="file" id="jsonFiles" multiple accept=".json">
+            
+            <div class="info-box">
+                <p>✅ **Corrección de Matrícula Automática:** La herramienta extrae los primeros 5 caracteres de **`studentName`** para forzar el valor correcto en **`idMatricula`** (Ej: "T4626\tCristhian..." &rarr; "T4626").</p>
+                <p>🔒 **Nombres Únicos Garantizados:** Se usa la hora completa (incluyendo segundos y milisegundos) en el nombre del archivo descargado para evitar colisiones.</p>
+            </div>
+            
+            <label for="newDate">2. (Opcional) Cambiar fecha de todos los archivos (YYYY-MM-DD):</label>
+            <input type="date" id="newDate">
+            <p style="font-size:0.85em; color:#777;">*Esto solo modifica la fecha de registro en el archivo, conservando la hora original.</p>
+            
+            <button id="processButton" disabled>Procesar y Descargar Archivos Corregidos</button>
+        </div>
+
+        <h2>Archivos Cargados (<span id="fileCount">0</span>)</h2>
+        <ul id="loadedFileList" class="file-list">
+            <li>Aún no hay archivos seleccionados.</li>
+        </ul>
+
+        <div id="processingMessage" class="processing-message">
+            Procesando y descargando archivos... Por favor, espere.
+        </div>
+    </div>
+    
+    <!-- Modal para Mensajes -->
+    <div id="messageModal" class="message-modal">
+        <div class="message-content">
+            <p id="messageText"></p>
+            <button id="modalOkBtn">Aceptar</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('jsonFiles');
+            const dateInput = document.getElementById('newDate');
+            const processButton = document.getElementById('processButton');
+            const fileListContainer = document.getElementById('loadedFileList');
+            const fileCountSpan = document.getElementById('fileCount');
+            const processingMessage = document.getElementById('processingMessage');
+            
+            // Modal elements
+            const messageModal = document.getElementById('messageModal');
+            const messageText = document.getElementById('messageText');
+            const modalOkBtn = document.getElementById('modalOkBtn');
+
+            let loadedFiles = [];
+
+            /**
+             * Muestra un modal de mensaje simple (reemplaza alert()).
+             * @param {string} message - El mensaje a mostrar.
+             */
+            function showCustomMessage(message) {
+                messageText.textContent = message;
+                messageModal.style.display = 'flex';
+                modalOkBtn.onclick = () => {
+                    messageModal.style.display = 'none';
+                };
+            }
+
+            /**
+             * Función central de corrección de matrícula.
+             * Extrae los primeros 5 caracteres del studentName y actualiza idMatricula.
+             * @param {object} jsonContent - El objeto JSON.
+             * @returns {string} Mensaje de corrección.
+             */
+            function fixMatricula(jsonContent) {
+                if (jsonContent.studentName && typeof jsonContent.studentName === 'string') {
+                    // Extraer los primeros 5 caracteres (que es la matrícula esperada)
+                    let extractedMatricula = jsonContent.studentName.substring(0, 5).toUpperCase().trim();
+                    
+                    if (jsonContent.studentName.length < 5) {
+                        // Si el nombre es muy corto, usar todo el nombre como fallback, pero esto es raro.
+                        extractedMatricula = jsonContent.studentName.toUpperCase().trim();
+                    }
+
+                    const originalMatricula = (jsonContent.idMatricula || 'VACÍO').toUpperCase().replace(/\s+/g, '').trim();
+                    
+                    // Aplicar la corrección al campo idMatricula
+                    jsonContent.idMatricula = extractedMatricula;
+                    
+                    // Retorna un mensaje para mostrar en la lista de archivos
+                    if (originalMatricula !== extractedMatricula) {
+                        return `Matrícula corregida: ${originalMatricula} → ${extractedMatricula}`;
+                    } else {
+                        return `Matrícula OK: ${extractedMatricula}`;
+                    }
+
+                }
+                return "Matrícula no encontrada/inválida en studentName.";
+            }
+
+
+            /**
+             * Maneja la selección de archivos y los carga en memoria.
+             */
+            fileInput.addEventListener('change', (event) => {
+                const files = event.target.files;
+                loadedFiles = [];
+                fileListContainer.innerHTML = '';
+
+                if (files.length === 0) {
+                    processButton.disabled = true;
+                    fileCountSpan.textContent = 0;
+                    fileListContainer.innerHTML = '<li>Aún no hay archivos seleccionados.</li>';
+                    return;
+                }
+
+                let filesProcessed = 0;
+                let errorCount = 0;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const reader = new FileReader();
+
+                    reader.onload = (e) => {
+                        const fileContent = e.target.result;
+                        let jsonContent = null;
+                        let isValid = true;
+                        let liText = file.name;
+                        let correctionMessage = "";
+
+                        try {
+                            jsonContent = JSON.parse(fileContent);
+                            
+                            // 1. Validar campos críticos
+                            if (!jsonContent.studentName || !jsonContent.date) {
+                                throw new Error("Faltan campos clave ('studentName' o 'date').");
+                            }
+                            
+                            // 2. Aplicar la corrección de Matrícula
+                            correctionMessage = fixMatricula(jsonContent);
+                            
+                            liText = `${file.name} - ${correctionMessage}`;
+                            
+                        } catch (error) {
+                            isValid = false;
+                            errorCount++;
+                            liText = `❌ ERROR: ${file.name} (${error.message || 'JSON inválido'})`;
+                        }
+
+                        const li = document.createElement('li');
+                        li.textContent = liText;
+                        if (!isValid) {
+                            li.classList.add('error');
+                        } else {
+                            loadedFiles.push({ name: file.name, content: jsonContent });
+                        }
+                        fileListContainer.appendChild(li);
+
+                        filesProcessed++;
+                        if (filesProcessed === files.length) {
+                            fileCountSpan.textContent = loadedFiles.length;
+                            processButton.disabled = loadedFiles.length === 0;
+                            if (errorCount > 0) {
+                                showCustomMessage(`Se cargaron ${loadedFiles.length} archivos válidos, pero ${errorCount} no pudieron ser leídos o no tenían el formato correcto.`);
+                            }
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            /**
+             * Procesa los archivos cargados, aplica correcciones y descarga.
+             */
+            processButton.addEventListener('click', async () => {
+                if (loadedFiles.length === 0) {
+                    showCustomMessage("Por favor, cargue archivos JSON válidos primero.");
+                    return;
+                }
+
+                const newDateStr = dateInput.value;
+
+                processingMessage.style.display = 'block';
+                processButton.disabled = true;
+
+                for (const fileObj of loadedFiles) {
+                    const data = fileObj.content;
+
+                    // 1. Unificar Fecha (si se proporcionó)
+                    if (newDateStr) {
+                        // Intentamos extraer la parte de la hora completa (T00:00:00.000Z)
+                        const timeMatch = data.date.match(/T(\d{2}:\d{2}:\d{2}\.\d{3}Z)/);
+                        const originalTimePart = timeMatch ? timeMatch[0] : '';
+                        
+                        // Si la hora existe, la adjuntamos a la nueva fecha. Si no, solo usamos la nueva fecha.
+                        data.date = newDateStr + originalTimePart;
+                    }
+
+                    // 2. Generar nuevo nombre de archivo estandarizado: MATRICULA_FECHA_HORA-MIN-SEG-MS.json
+                    const cleanMatricula = data.idMatricula || 'SIN_MATRICULA';
+                    const datePart = data.date ? data.date.slice(0, 10) : 'SIN_FECHA'; // YYYY-MM-DD
+                    let timePart = '00-00-00-000'; // Valor por defecto
+
+                    if (data.date) {
+                        // Buscamos el patrón T(HH:MM:SS.mmm)
+                        const fullTimeMatch = data.date.match(/T(\d{2}):(\d{2}):(\d{2})\.(\d{3})/); 
+                        
+                        if (fullTimeMatch) {
+                            // Usamos el formato HH-MM-SS-MS
+                            timePart = `${fullTimeMatch[1]}-${fullTimeMatch[2]}-${fullTimeMatch[3]}-${fullTimeMatch[4]}`;
+                        } else {
+                            // Fallback: Si no tiene milisegundos, usar HH-MM y ceros para el resto
+                            const partialTimeMatch = data.date.match(/T(\d{2}):(\d{2})/);
+                            timePart = partialTimeMatch ? `${partialTimeMatch[1]}-${partialTimeMatch[2]}-00-000` : '00-00-00-000';
+                        }
+                    }
+                    
+                    const newFileName = `${cleanMatricula}_${datePart}_${timePart}.json`;
+                    
+                    // 3. Descargar Archivo Modificado
+                    const jsonStr = JSON.stringify(data, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = newFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    // Pequeña pausa para asegurar que el navegador maneje las descargas
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                processingMessage.style.display = 'none';
+                processButton.disabled = false;
+                showCustomMessage(`🎉 ¡Proceso Terminado! Se han descargado ${loadedFiles.length} archivos corregidos. Revisa tu carpeta de descargas.`);
+                
+                // Limpiar después de la descarga para preparar para la próxima tanda
+                loadedFiles = [];
+                fileInput.value = '';
+                dateInput.value = '';
+                fileCountSpan.textContent = 0;
+                fileListContainer.innerHTML = '<li>Archivos procesados y listos.</li>';
+            });
+        });
+    </script>
+</body>
+</html>
